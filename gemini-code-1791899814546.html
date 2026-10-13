@@ -1,0 +1,800 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>خزنة الفرق السحابية</title>
+<!-- مكتبات Firebase السحابية -->
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
+
+<style>
+:root {
+  --bg: #090d16;
+  --surface: #111827;
+  --surface-hover: #1f2937;
+  --border: #1e293b;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --accent: #6366f1;
+  --accent-hover: #4f46e5;
+  --accent-glow: rgba(99, 102, 241, 0.25);
+  --danger: #f43f5e;
+  --danger-bg: rgba(244, 63, 94, 0.1);
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text-main);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+button, input, select { font: inherit; }
+
+button {
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-main);
+  padding: 10px 18px;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+button:hover {
+  background: var(--surface-hover);
+  border-color: #334155;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.btn-accent {
+  background: linear-gradient(135deg, var(--accent), #8b5cf6);
+  color: #fff;
+  border: 0;
+  box-shadow: 0 4px 15px var(--accent-glow);
+}
+.btn-accent:hover {
+  background: linear-gradient(135deg, var(--accent-hover), #7c3aed);
+}
+
+.btn-danger {
+  color: var(--danger);
+  border-color: rgba(244, 63, 94, 0.3);
+  background: var(--danger-bg);
+}
+.btn-danger:hover {
+  background: rgba(244, 63, 94, 0.2);
+}
+
+input {
+  width: 100%;
+  padding: 11px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #0d1322;
+  color: var(--text-main);
+  outline: none;
+  transition: all 0.2s;
+}
+input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-glow);
+}
+
+/* شاشة تسجيل الدخول */
+#authScreen {
+  position: fixed; inset: 0; background: var(--bg);
+  display: flex; align-items: center; justify-content: center; z-index: 1000;
+  padding: 20px;
+}
+.auth-card {
+  width: min(400px, 100%); background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--radius-lg);
+  padding: 36px; box-shadow: var(--shadow); text-align: center;
+}
+.auth-card h2 { margin-top: 0; font-size: 24px; font-weight: 800; }
+.auth-card p { color: var(--text-muted); font-size: 13px; margin-bottom: 24px; }
+
+header {
+  background: rgba(17, 24, 39, 0.8);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  padding: 18px 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+.brand { display: flex; gap: 14px; align-items: center; }
+.logo {
+  width: 44px; height: 44px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, var(--accent), #06b6d4);
+  color: #fff;
+  display: grid; place-items: center;
+  font-size: 20px;
+  box-shadow: 0 4px 15px var(--accent-glow);
+}
+.brand h1 { margin: 0; font-size: 18px; font-weight: 800; letter-spacing: -0.5px; }
+.brand p { margin: 2px 0 0; color: var(--text-muted); font-size: 12px; }
+
+.header-controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+.layout {
+  max-width: 1550px;
+  margin: 0 auto;
+  padding: 32px;
+  display: grid;
+  grid-template-columns: 310px minmax(0, 1fr);
+  gap: 28px;
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+}
+
+.sidebar {
+  padding: 24px;
+  height: calc(100vh - 130px);
+  position: sticky;
+  top: 102px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
+.sidehead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.tree-row { display: flex; align-items: center; gap: 4px; margin-bottom: 6px; }
+.tree-btn {
+  flex: 1; text-align: right; border: 0; background: transparent;
+  display: flex; gap: 10px; align-items: center; padding: 10px 14px;
+  border-radius: var(--radius-sm); color: var(--text-muted); font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: 0.2s;
+}
+.tree-btn.active { background: rgba(99, 102, 241, 0.15); color: #818cf8; border-right: 3px solid var(--accent); }
+.tree-btn:hover:not(.active) { background: var(--surface-hover); color: var(--text-main); }
+.tree-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.tree-actions { display: flex; align-items: center; gap: 2px; }
+.tree-add {
+  border: 0; padding: 6px 10px; background: transparent; color: var(--text-muted);
+  border-radius: var(--radius-sm); font-size: 12px; transition: 0.2s;
+}
+.tree-add:hover { background: var(--border); color: var(--text-main); }
+.children { margin-right: 18px; padding-right: 12px; border-right: 2px solid var(--border); margin-top: 6px; }
+
+.folder-menu-container { position: relative; display: inline-block; }
+.folder-dropdown {
+  position: absolute; top: 100%; right: 0; background: #162032;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.6); display: none; flex-direction: column; min-width: 140px; z-index: 30; overflow: hidden;
+}
+.folder-dropdown.show { display: flex; }
+.folder-dropdown button {
+  background: transparent; border: none; padding: 9px 12px; text-align: right; color: var(--text-main); font-size: 12px; border-radius: 0; box-shadow: none; justify-content: flex-start; gap: 8px;
+}
+.folder-dropdown button:hover { background: rgba(99, 102, 241, 0.2); color: #818cf8; transform: none; box-shadow: none; }
+.folder-dropdown button.danger-opt { color: var(--danger); }
+.folder-dropdown button.danger-opt:hover { background: var(--danger-bg); }
+
+.main { padding: 36px; min-height: 620px; display: flex; flex-direction: column; }
+.topline { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.topline h2 { font-size: 26px; margin: 0; font-weight: 800; letter-spacing: -0.5px; }
+.crumb { color: var(--text-muted); font-size: 13px; margin-top: 8px; }
+
+.toolbar { display: flex; gap: 14px; align-items: center; margin: 28px 0; flex-wrap: wrap; }
+.toolbar input { flex: 1; min-width: 240px; max-width: 420px; padding: 12px 18px; }
+
+.notice {
+  padding: 16px 20px; border-radius: var(--radius-md);
+  background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); color: #fcd34d;
+  font-size: 13px; line-height: 1.6; margin-bottom: 24px;
+}
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 22px; }
+.card-clean {
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+  background: #0d1322; padding: 12px; display: flex; flex-direction: column;
+  transition: all 0.3s; box-shadow: 0 4px 20px rgba(0,0,0,0.2); position: relative;
+}
+.card-clean:hover { border-color: var(--accent); box-shadow: 0 8px 30px rgba(99, 102, 241, 0.15); transform: translateY(-4px); }
+
+.preview {
+  height: 170px; border-radius: var(--radius-sm); background: #060911;
+  display: flex; align-items: center; justify-content: center; overflow: hidden; margin-bottom: 10px; cursor: pointer; border: 1px solid #1a2234;
+}
+.preview img, .preview video { width: 100%; height: 100%; object-fit: cover; }
+.preview video { background: #000; }
+
+.card-footer { display: flex; justify-content: space-between; align-items: center; padding: 2px 4px; }
+.card-name { font-size: 12px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 130px; }
+
+.card-menu-container { position: relative; }
+.dot-btn { background: transparent; border: none; color: var(--text-muted); padding: 4px 8px; font-size: 18px; cursor: pointer; border-radius: 6px; box-shadow: none; }
+.dot-btn:hover { background: var(--surface-hover); color: var(--text-main); transform: none; box-shadow: none; }
+
+.dropdown-menu {
+  position: absolute; bottom: 100%; left: 0; background: #162032;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.6); display: none; flex-direction: column; min-width: 140px; z-index: 20; overflow: hidden; margin-bottom: 4px;
+}
+.dropdown-menu.show { display: flex; }
+.dropdown-menu button {
+  background: transparent; border: none; padding: 9px 14px; text-align: right; color: var(--text-main); font-size: 13px; border-radius: 0; box-shadow: none; justify-content: flex-start; gap: 8px;
+}
+.dropdown-menu button:hover { background: rgba(99, 102, 241, 0.2); color: #818cf8; transform: none; box-shadow: none; }
+.dropdown-menu button.danger-opt { color: var(--danger); }
+.dropdown-menu button.danger-opt:hover { background: var(--danger-bg); }
+
+.empty {
+  border: 2px dashed var(--border); border-radius: var(--radius-lg); text-align: center;
+  padding: 90px 20px; color: var(--text-muted); grid-column: 1 / -1; background: rgba(17, 24, 39, 0.4);
+}
+.empty b { display: block; color: var(--text-main); font-size: 16px; margin-bottom: 8px; }
+
+.modal-bg {
+  position: fixed; inset: 0; background: rgba(5, 8, 15, 0.8);
+  backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; padding: 20px; z-index: 50;
+}
+.modal {
+  width: min(540px, 100%); background: var(--surface); border-radius: var(--radius-lg);
+  padding: 32px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7); border: 1px solid var(--border);
+}
+.modal h3 { margin: 0 0 24px; font-size: 22px; font-weight: 800; }
+.field { margin-bottom: 20px; }
+.field label { display: block; font-weight: 700; font-size: 12px; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; }
+
+.tree-select-box {
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 14px; max-height: 260px; overflow-y: auto; background: #0d1322;
+}
+.select-tree-item {
+  display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+  border-radius: var(--radius-sm); margin-bottom: 4px; cursor: pointer; transition: 0.2s;
+}
+.select-tree-item:hover { background: var(--surface-hover); }
+.select-tree-item input { width: auto; cursor: pointer; accent-color: var(--accent); }
+.select-tree-children { margin-right: 20px; padding-right: 12px; border-right: 2px dashed var(--border); margin-top: 4px; }
+
+.modal-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 28px; }
+
+.viewer { width: min(1050px, 95vw); height: min(90vh, 900px); display: flex; flex-direction: column; padding: 24px; }
+.viewer-body {
+  flex: 1; min-height: 0; background: #000; border-radius: var(--radius-md);
+  display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--border);
+}
+.viewer-body img, .viewer-body video, .viewer-body iframe { width: 100%; height: 100%; object-fit: contain; border: 0; }
+
+.toast {
+  display: none; position: fixed; bottom: 32px; left: 32px; background: #1e293b;
+  color: #fff; border: 1px solid #334155; padding: 14px 22px; border-radius: var(--radius-md); font-size: 14px; font-weight: 600; z-index: 100;
+}
+</style>
+</head>
+<body>
+
+<!-- شاشة تسجيل الدخول -->
+<div id="authScreen">
+  <div class="auth-card">
+    <h2>تسجيل الدخول لخزنة الفرق</h2>
+    <p>أدخل بريدك الإلكتروني وكلمة المرور المشتركة مع أصدقائك</p>
+    <div class="field">
+      <input id="authEmail" type="email" placeholder="البريد الإلكتروني">
+    </div>
+    <div class="field">
+      <input id="authPassword" type="password" placeholder="كلمة المرور">
+    </div>
+    <button class="btn-accent" style="width:100%; justify-content:center;" onclick="handleLogin()">دخول الخزنة</button>
+    <div id="authError" style="color:var(--danger); font-size:12px; margin-top:12px;"></div>
+  </div>
+</div>
+
+<header>
+  <div class="brand">
+    <div class="logo">✦</div>
+    <div>
+      <h1>خزنة الفرق السحابية</h1>
+      <p>مشاركة الملفات بين أصدقائك عبر الإنترنت</p>
+    </div>
+  </div>
+  <div class="header-controls">
+    <span id="userEmailDisplay" style="font-size:12px; color:var(--text-muted);"></span>
+    <button onclick="handleLogout()" class="btn-danger" style="padding:6px 12px; font-size:12px;">خروج</button>
+    <button onclick="newTeam()">＋ فريق جديد</button>
+    <button id="personBtn" onclick="newPerson()">＋ شخص داخل الفريق</button>
+    <button id="uploadBtn" class="btn-accent" onclick="openUpload()">＋ رفع ملفات</button>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="panel sidebar">
+    <div class="sidehead">
+      <span>الأقسام والفرق</span>
+      <button onclick="newTeam()" style="padding:4px 10px; font-size:11px;">＋ فريق</button>
+    </div>
+    <div id="tree"></div>
+  </aside>
+
+  <main class="panel main">
+    <div class="topline">
+      <div>
+        <h2 id="currentTitle">اختر فريقاً</h2>
+        <div id="breadcrumb" class="crumb">اختر فريقاً من القائمة الجانبية</div>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <input id="search" placeholder="ابحث في الملفات..." oninput="renderContent()">
+      <button id="subfolderBtn" onclick="newSubfolder()">＋ مجلد فرعي</button>
+      <button id="uploadBtn2" class="btn-accent" onclick="openUpload()">＋ رفع ملفات</button>
+    </div>
+
+    <div id="personNotice" class="notice" style="display:none">
+      هذا مجلد شخص. قم بإنشاء مجلد فرعي بداخله (مثل: صور) لتتمكن من إضافة الملفات إليه.
+    </div>
+
+    <div id="content" class="grid"></div>
+  </main>
+</div>
+
+<!-- Modal: Folder -->
+<div class="modal-bg" id="folderModal">
+  <div class="modal">
+    <h3 id="folderModalTitle">إنشاء مجلد</h3>
+    <div class="field">
+      <label>الاسم</label>
+      <input id="newName" placeholder="اكتب الاسم...">
+    </div>
+    <div class="modal-actions">
+      <button onclick="closeModal('folderModal')">إلغاء</button>
+      <button class="btn-accent" onclick="saveFolder()">حفظ</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Rename File -->
+<div class="modal-bg" id="renameModal">
+  <div class="modal">
+    <h3>تعديل اسم الملف</h3>
+    <input type="hidden" id="renameId">
+    <div class="field">
+      <label>الاسم الجديد</label>
+      <input id="renameName">
+    </div>
+    <div class="modal-actions">
+      <button onclick="closeModal('renameModal')">إلغاء</button>
+      <button class="btn-accent" onclick="saveRenameFile()">حفظ التعديل</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Upload -->
+<div class="modal-bg" id="uploadModal">
+  <div class="modal">
+    <h3>رفع الملفات والصور</h3>
+    <div class="field">
+      <label>اختر وجهة التخزين:</label>
+      <div id="uploadTreeTargets" class="tree-select-box"></div>
+    </div>
+    <div class="field">
+      <label>كتابة اسم مخصص للملفات (اختياري)</label>
+      <input id="uploadCustomName" placeholder="اكتب اسماً يظهر للملفات...">
+    </div>
+    <div class="field">
+      <label>اختر الملفات أو الصور</label>
+      <input id="filesInput" type="file" multiple>
+    </div>
+    <div class="modal-actions">
+      <button onclick="closeModal('uploadModal')">إلغاء</button>
+      <button class="btn-accent" onclick="saveFiles()">حفظ الملفات</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Viewer -->
+<div class="modal-bg" id="viewerModal">
+  <div class="modal viewer">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <b id="viewerTitle" style="font-size:16px;">معاينة الملف</b>
+      <div style="display:flex;gap:10px">
+        <button id="viewerDownload">تنزيل</button>
+        <button onclick="closeModal('viewerModal')">إغلاق</button>
+      </div>
+    </div>
+    <div id="viewerBody" class="viewer-body"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyAn05tkE32u9c8QoFpuZBwbfBwkuG_hR2E",
+    authDomain: "fortnite-2095c.firebaseapp.com",
+    projectId: "fortnite-2095c",
+    storageBucket: "fortnite-2095c.firebasestorage.app",
+    messagingSenderId: "57000723650",
+    appId: "1:57000723650:web:0e69093f801edea2ac675b"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+  // تعريف تخزين الملفات مع تحديد الرابط صراحة لتجنب أي تعليق في الاتصال
+  const storage = firebase.app().storage("gs://fortnite-2095c.firebasestorage.app");
+
+  let folders = [], files = [], current = 'root', mode = 'team';
+
+  auth.onAuthStateChanged(async (user) => {
+    if (user) {
+      document.getElementById('authScreen').style.display = 'none';
+      document.getElementById('userEmailDisplay').textContent = user.email;
+      await loadCloudData();
+    } else {
+      document.getElementById('authScreen').style.display = 'flex';
+    }
+  });
+
+  async function handleLogin() {
+    let email = document.getElementById('authEmail').value.trim();
+    let pass = document.getElementById('authPassword').value.trim();
+    let errEl = document.getElementById('authError');
+    errEl.textContent = '';
+    try {
+      await auth.signInWithEmailAndPassword(email, pass);
+    } catch(e) {
+      try {
+        await auth.createUserWithEmailAndPassword(email, pass);
+      } catch(err) {
+        errEl.textContent = 'خطأ في تسجيل الدخول: تأكد من صحة البريد وكلمة المرور.';
+      }
+    }
+  }
+
+  async function handleLogout() {
+    await auth.signOut();
+  }
+
+  async function loadCloudData() {
+    try {
+      let fSnap = await db.collection('folders').get();
+      folders = fSnap.docs.map(doc => doc.data());
+
+      let fiSnap = await db.collection('files').get();
+      files = fiSnap.docs.map(doc => doc.data());
+
+      if (current !== 'root' && !getF(current)) current = 'root';
+      drawTree();
+      renderContent();
+    } catch(e) {
+      console.error(e);
+    }
+  }
+
+  function getF(id) { return folders.find(f => f.id === id); }
+  function kids(id) { return folders.filter(f => f.parentId === id).sort((a,b) => a.name.localeCompare(b.name, 'ar')); }
+  function isPerson(id) { return getF(id)?.kind === 'person'; }
+  function path(id) {
+    let f = getF(id), a = [];
+    while (f) { a.unshift(f.name); f = getF(f.parentId); }
+    return a.join(' / ');
+  }
+
+  function drawTree() {
+    let el = document.getElementById('tree');
+    el.innerHTML = '';
+    let teams = folders.filter(f => f.kind === 'team').sort((a,b) => a.name.localeCompare(b.name, 'ar'));
+    if (!teams.length) {
+      el.innerHTML = '<div style="color:var(--text-muted); font-size:13px; text-align:center; padding:30px 10px;">لا توجد فرق مضافة</div>';
+      return;
+    }
+    teams.forEach(t => drawNode(t, el));
+  }
+
+  function drawNode(f, parent) {
+    let wrap = document.createElement('div'), row = document.createElement('div');
+    row.className = 'tree-row';
+    let b = document.createElement('button');
+    b.className = 'tree-btn ' + (current === f.id ? 'active' : '');
+    b.innerHTML = `<span>${f.kind==='team'?'■':f.kind==='person'?'•':'📁'}</span><span class="tree-name">${esc(f.name)}</span>`;
+    b.onclick = () => select(f.id);
+    row.appendChild(b);
+
+    let actionsDiv = document.createElement('div');
+    actionsDiv.className = 'tree-actions';
+
+    let plus = document.createElement('button');
+    plus.className = 'tree-add';
+    plus.textContent = '＋';
+    plus.onclick = (e) => { e.stopPropagation(); f.kind === 'team' ? newPerson(f.id) : newSubfolder(f.id); };
+    actionsDiv.appendChild(plus);
+
+    let menuContainer = document.createElement('div');
+    menuContainer.className = 'folder-menu-container';
+    menuContainer.innerHTML = `
+      <button class="dot-btn" onclick="toggleFolderMenu(event, '${f.id}')">⋮</button>
+      <div class="folder-dropdown" id="folder_menu_${f.id}">
+        <button onclick="renameFolderById('${f.id}')">✏️ تعديل الاسم</button>
+        <button class="danger-opt" onclick="deleteFolderById('${f.id}')">🗑️ حذف</button>
+      </div>
+    `;
+    actionsDiv.appendChild(menuContainer);
+    row.appendChild(actionsDiv);
+
+    wrap.appendChild(row);
+    let sub = kids(f.id);
+    if (sub.length) {
+      let ch = document.createElement('div');
+      ch.className = 'children';
+      sub.forEach(c => drawNode(c, ch));
+      wrap.appendChild(ch);
+    }
+    parent.appendChild(wrap);
+  }
+
+  function select(id) {
+    current = id;
+    document.getElementById('search').value = '';
+    drawTree();
+    renderContent();
+  }
+
+  function renderContent() {
+    let f = getF(current), person = isPerson(current);
+    document.getElementById('currentTitle').textContent = f?.name || 'اختر فريقاً';
+    document.getElementById('breadcrumb').textContent = f ? path(current) : 'اختر فريقاً من القائمة الجانبية';
+    document.getElementById('personNotice').style.display = person ? 'block' : 'none';
+    document.getElementById('personBtn').disabled = f?.kind !== 'team';
+    document.getElementById('uploadBtn').disabled = person;
+    document.getElementById('uploadBtn2').disabled = person;
+    document.getElementById('subfolderBtn').disabled = !f || f.kind === 'team';
+
+    let q = (document.getElementById('search').value || '').trim().toLowerCase();
+    let el = document.getElementById('content');
+    el.innerHTML = '';
+
+    let fs = files.filter(x => fileInFolder(x, current) && (!q || (x.name + ' ' + (x.category||'')).toLowerCase().includes(q)));
+
+    fs.forEach(item => {
+      let d = document.createElement('div');
+      d.className = 'card-clean';
+      d.innerHTML = `
+        <div class="preview"><img src="${item.url}" alt=""></div>
+        <div class="card-footer">
+          <span class="card-name" title="${esc(item.name)}">${esc(item.name)}</span>
+          <div class="card-menu-container">
+            <button class="dot-btn" onclick="toggleMenu(event, '${item.id}')">⋮</button>
+            <div class="dropdown-menu" id="menu_${item.id}">
+              <button onclick="viewFile('${item.url}', '${esc(item.name)}')">👁️ عرض</button>
+              <button onclick="window.open('${item.url}', '_blank')">⬇️ تنزيل</button>
+              <button onclick="renameFileById('${item.id}')">✏️ تعديل الاسم</button>
+              <button class="danger-opt" onclick="deleteFileById('${item.id}')">🗑️ حذف</button>
+            </div>
+          </div>
+        </div>`;
+      el.appendChild(d);
+    });
+
+    if (!fs.length) {
+      el.innerHTML = '<div class="empty"><b>لا توجد صور أو ملفات هنا</b>انقر على «رفع ملفات» لإضافة محتواك.</div>';
+    }
+  }
+
+  window.addEventListener('click', (e) => {
+    if (!e.target.closest('.card-menu-container')) {
+      document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('show'));
+    }
+    if (!e.target.closest('.folder-menu-container')) {
+      document.querySelectorAll('.folder-dropdown').forEach(m => m.classList.remove('show'));
+    }
+  });
+
+  function toggleMenu(e, id) {
+    e.stopPropagation();
+    document.querySelectorAll('.dropdown-menu').forEach(m => { if (m.id !== 'menu_' + id) m.classList.remove('show'); });
+    document.getElementById('menu_' + id).classList.toggle('show');
+  }
+
+  function toggleFolderMenu(e, id) {
+    e.stopPropagation();
+    document.querySelectorAll('.folder-dropdown').forEach(m => { if (m.id !== 'folder_menu_' + id) m.classList.remove('show'); });
+    document.getElementById('folder_menu_' + id).classList.toggle('show');
+  }
+
+  function fileInFolder(f, id) {
+    return (Array.isArray(f.folderIds) ? f.folderIds : [f.folderId]).includes(id);
+  }
+
+  function showFolderModal(title) {
+    document.getElementById('folderModalTitle').textContent = title;
+    document.getElementById('newName').value = '';
+    document.getElementById('folderModal').style.display = 'flex';
+  }
+
+  function newTeam() { mode = 'team'; showFolderModal('إنشاء فريق جديد'); }
+  function newPerson(teamId) {
+    let t = teamId || current;
+    if (getF(t)?.kind !== 'team') return alert('اختر الفريق أولاً');
+    mode = 'person'; window.newParent = t; showFolderModal('إضافة شخص داخل الفريق');
+  }
+  function newSubfolder(parentId) {
+    let p = parentId || current;
+    if (!getF(p) || getF(p).kind === 'team') return alert('اختر مجلداً صالحاً');
+    mode = 'folder'; window.newParent = p; showFolderModal('إنشاء مجلد فرعي');
+  }
+
+  async function saveFolder() {
+    let name = document.getElementById('newName').value.trim();
+    if (!name) return alert('يرجى كتابة الاسم أولاً');
+    if (mode === 'renameFolder') {
+      let f = getF(window.renameFolderTargetId);
+      if (!f) return;
+      f.name = name;
+      await db.collection('folders').doc(f.id).set(f);
+      closeModal('folderModal'); await loadCloudData(); toast('تم التعديل بنجاح'); return;
+    }
+    let parent = mode === 'team' ? 'root' : window.newParent;
+    let kind = mode === 'team' ? 'team' : mode === 'person' ? 'person' : 'folder';
+    let id = 'd_' + crypto.randomUUID();
+    let newFolder = { id, name, parentId: parent, kind, created: Date.now() };
+    await db.collection('folders').doc(id).set(newFolder);
+    closeModal('folderModal'); await loadCloudData(); select(id); toast('تم الإنشاء بنجاح');
+  }
+
+  function renameFolderById(id) {
+    let f = getF(id); if (!f) return;
+    mode = 'renameFolder'; window.renameFolderTargetId = f.id;
+    document.getElementById('folderModalTitle').textContent = 'تعديل اسم المجلد';
+    document.getElementById('newName').value = f.name;
+    document.getElementById('folderModal').style.display = 'flex';
+  }
+
+  async function deleteFolderById(id) {
+    let f = getF(id); if (!f) return;
+    if (!confirm(`حذف المجلد "${f.name}" وكل محتوياته؟`)) return;
+    await db.collection('folders').doc(id).delete();
+    current = f.parentId || 'root'; await loadCloudData(); toast('تم الحذف');
+  }
+
+  function teamOf(id) {
+    let f = getF(id); while (f && f.kind !== 'team') f = getF(f.parentId); return f || null;
+  }
+
+  function renderUploadTree(parentId, containerElement) {
+    let sub = kids(parentId);
+    sub.forEach(item => {
+      let itemDiv = document.createElement('div');
+      let label = document.createElement('label');
+      label.className = 'select-tree-item';
+      let canSelect = item.kind !== 'person';
+      let checkboxHtml = canSelect ? `<input type="checkbox" value="${esc(item.id)}">` : `<span style="font-size:11px;color:var(--text-muted)">(تنظيم)</span>`;
+      label.innerHTML = `${checkboxHtml} <span>${esc(item.name)}</span>`;
+      itemDiv.appendChild(label);
+      let childrenSub = kids(item.id);
+      if (childrenSub.length > 0) {
+        let childrenContainer = document.createElement('div');
+        childrenContainer.className = 'select-tree-children';
+        itemDiv.appendChild(childrenContainer);
+        renderUploadTree(item.id, childrenContainer);
+      }
+      containerElement.appendChild(itemDiv);
+    });
+  }
+
+  function openUpload() {
+    let team = teamOf(current); if (!team) return alert('يرجى اختيار فريق أولاً');
+    document.getElementById('filesInput').value = '';
+    document.getElementById('uploadCustomName').value = '';
+    let treeTargets = document.getElementById('uploadTreeTargets');
+    treeTargets.innerHTML = '';
+    let rootLabel = document.createElement('label');
+    rootLabel.className = 'select-tree-item';
+    rootLabel.innerHTML = `<input type="checkbox" value="${esc(team.id)}" checked> <span>${esc(team.name)} (الفريق الرئيسي)</span>`;
+    treeTargets.appendChild(rootLabel);
+    renderUploadTree(team.id, treeTargets);
+    document.getElementById('uploadModal').style.display = 'flex';
+  }
+
+  async function saveFiles() {
+    let inp = document.getElementById('filesInput');
+    let customName = document.getElementById('uploadCustomName').value.trim();
+    let targets = [...document.querySelectorAll('#uploadTreeTargets input:checked')].map(x => x.value);
+    if (!inp.files.length) return alert('اختر ملفاً واحداً على الأقل');
+    if (!targets.length) return alert('اختر وجهة واحدة للملفات');
+
+    toast('جاري الرفع للسحابة...');
+    try {
+      for (let file of inp.files) {
+        let finalName = customName ? (inp.files.length > 1 ? `${customName} (${file.name})` : customName) : file.name;
+        let fileId = 'f_' + crypto.randomUUID();
+        let storageRef = storage.ref('files/' + fileId + '_' + file.name);
+        let snapshot = await storageRef.put(file);
+        let downloadUrl = await snapshot.ref.getDownloadURL();
+
+        let fileData = {
+          id: fileId, name: finalName, folderId: targets[0], folderIds: targets, url: downloadUrl, created: Date.now()
+        };
+        await db.collection('files').doc(fileId).set(fileData);
+      }
+      closeModal('uploadModal'); 
+      await loadCloudData(); 
+      toast('تم الرفع والمشاركة بنجاح');
+    } catch (err) {
+      console.error(err);
+      alert('خطأ أثناء الرفع: ' + err.message);
+    }
+  }
+
+  function viewFile(url, title) {
+    document.getElementById('viewerTitle').textContent = title;
+    document.getElementById('viewerDownload').onclick = () => window.open(url, '_blank');
+    document.getElementById('viewerBody').innerHTML = `<img src="${url}">`;
+    document.getElementById('viewerModal').style.display = 'flex';
+  }
+
+  function renameFileById(id) {
+    let f = files.find(x => x.id === id); if (!f) return;
+    document.getElementById('renameId').value = f.id;
+    document.getElementById('renameName').value = f.name;
+    document.getElementById('renameModal').style.display = 'flex';
+  }
+
+  async function saveRenameFile() {
+    let id = document.getElementById('renameId').value;
+    let newName = document.getElementById('renameName').value.trim();
+    let f = files.find(x => x.id === id); if (!f || !newName) return;
+    f.name = newName;
+    await db.collection('files').doc(id).set(f);
+    closeModal('renameModal'); await loadCloudData(); toast('تم التعديل بنجاح');
+  }
+
+  async function deleteFileById(id) {
+    if (!confirm('حذف هذا الملف نهائياً من السحابة؟')) return;
+    await db.collection('files').doc(id).delete();
+    await loadCloudData(); toast('تم الحذف');
+  }
+
+  function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+  function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+  function toast(s) {
+    let t = document.getElementById('toast'); t.textContent = s; t.style.display = 'block';
+    setTimeout(() => t.style.display = 'none', 3000);
+  }
+
+  document.querySelectorAll('.modal-bg').forEach(m => m.addEventListener('click', e => { if (e.target === m) closeModal(m.id); }));
+</script>
+</body>
+</html>
